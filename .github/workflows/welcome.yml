@@ -1,0 +1,38 @@
+# Reusable: greet first-time contributors and tell them when to expect a reply.
+#
+#   # .github/workflows/welcome.yml
+#   name: Welcome
+#   on:
+#     issues: { types: [opened] }
+#     pull_request_target: { types: [opened] }
+#   jobs:
+#     welcome:
+#       uses: htlin222/.github/.github/workflows/welcome.yml@main
+#       permissions: { issues: write, pull-requests: write }
+name: welcome
+
+on:
+  workflow_call:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    if: >-
+      contains(fromJSON('["FIRST_TIME_CONTRIBUTOR","FIRST_TIMER","NONE"]'),
+      github.event.issue.author_association || github.event.pull_request.author_association)
+      && !endsWith(github.actor, '[bot]')
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const isPR = !!context.payload.pull_request;
+            const n = (context.payload.pull_request || context.payload.issue).number;
+            const body = isPR
+              ? `🙏 Thanks for your first PR here! It's on the operating list — expect a first look within about a week.\n謝謝你的第一個 PR！一週內會看，等太久歡迎留言提醒。`
+              : `👋 Thanks for opening this! It's been triaged into the queue — expect a first reply within about a week.\n謝謝回報！已排進候診清單，一週內回覆。`;
+            await github.rest.issues.createComment({ ...context.repo, issue_number: n, body });

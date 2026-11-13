@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 🔐 Security issue · 資安問題
+    url: https://github.com/htlin222/.github/blob/main/SECURITY.md
+    about: Please report vulnerabilities privately, not in a public issue. 請私下回報。
+  - name: 💬 Questions & ideas · 使用問題
+    url: https://github.com/htlin222/.github/blob/main/SUPPORT.md
+    about: Where to ask how-to questions and where to get help. 去哪裡發問。

@@ -1,0 +1,39 @@
+# Reusable: attach the architecture diagram (and any other docs assets) to every release.
+#
+#   # .github/workflows/release-assets.yml
+#   name: Release assets
+#   on:
+#     release: { types: [published] }
+#   jobs:
+#     assets:
+#       uses: htlin222/.github/.github/workflows/release-assets.yml@main
+#       permissions: { contents: write }
+name: release-assets
+
+on:
+  workflow_call:
+    inputs:
+      files:
+        description: Space-separated paths to upload when present
+        type: string
+        default: "docs/architecture.svg docs/architecture-dark.svg"
+
+permissions:
+  contents: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Upload assets to ${{ github.event.release.tag_name }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          found=""
+          for f in ${{ inputs.files }}; do [ -f "$f" ] && found="$found $f"; done
+          if [ -z "$found" ]; then echo "::notice::No assets found — nothing to upload"; exit 0; fi
+          gh release upload "$TAG" $found --clobber
+          echo "Uploaded:$found"

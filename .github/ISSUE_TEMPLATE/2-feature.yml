@@ -1,0 +1,43 @@
+name: 📋 Feature request · 會診單
+description: Suggest an idea. Like a consult request — tell us the question you need answered.
+title: "[Consult] "
+labels: [enhancement, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A good consult names the **question**, the **context** and **what you already tried**.
+        好的會診單：要問什麼、背景是什麼、已經試過什麼。
+  - type: input
+    id: question
+    attributes:
+      label: Consult question · 會診目的
+      description: One sentence. What do you want to be able to do?
+      placeholder: "Export the forest plot as SVG so I can edit it for a journal"
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Clinical context · 背景
+      description: Who needs this and in which workflow? Why does it matter?
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: Already tried · 目前做法
+      description: Workarounds or other tools you used, and where they fall short.
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Suggested plan · 建議處置
+      description: Optional. How might it work? Sketches, examples and links are welcome.
+  - type: dropdown
+    id: help
+    attributes:
+      label: Can you help? · 你願意參與嗎？
+      options:
+        - "I'd like to open a PR myself 我想自己送 PR"
+        - "I can test it 我可以幫忙測試"
+        - "Just the idea for now 先提想法"

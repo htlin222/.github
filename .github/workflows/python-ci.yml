@@ -1,0 +1,62 @@
+# Reusable CI for Python repos. Call it from any repo:
+#
+#   # .github/workflows/ci.yml
+#   name: CI
+#   on: [push, pull_request]
+#   jobs:
+#     ci:
+#       uses: htlin222/.github/.github/workflows/python-ci.yml@main
+#
+# Detects uv / pip, installs, lints with ruff (non-blocking unless strict), runs pytest if tests exist.
+name: python-ci
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        type: string
+        default: "3.12"
+      working-directory:
+        type: string
+        default: "."
+      strict-lint:
+        description: Fail the run on ruff findings
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - uses: astral-sh/setup-uv@v6
+      - name: Install
+        run: |
+          if [ -f uv.lock ]; then uv sync --all-extras --dev || uv sync
+          elif [ -f pyproject.toml ]; then uv pip install --system -e ".[dev,test]" || uv pip install --system -e .
+          elif [ -f requirements.txt ]; then uv pip install --system -r requirements.txt
+          fi
+          uv pip install --system pytest ruff 2>/dev/null || true
+      - name: Lint (ruff)
+        run: |
+          RUN=""; [ -f uv.lock ] && RUN="uv run"
+          $RUN ruff check . --output-format=github ${{ inputs.strict-lint && '' || '--exit-zero' }}
+      - name: Test
+        run: |
+          RUN=""; [ -f uv.lock ] && RUN="uv run"
+          if ls -d tests test 2>/dev/null | grep -q . || find . -name 'test_*.py' -not -path './.venv/*' | grep -q .; then
+            $RUN python -m pytest -q
+          else
+            echo "::notice::No tests found — compiling sources instead"
+            python -m compileall -q -x '/\.venv/' .
+          fi

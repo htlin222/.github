@@ -1,0 +1,80 @@
+# Reusable CI for JavaScript / TypeScript repos. Call it from any repo:
+#
+#   # .github/workflows/ci.yml
+#   name: CI
+#   on: [push, pull_request]
+#   jobs:
+#     ci:
+#       uses: htlin222/.github/.github/workflows/node-ci.yml@main
+#
+# Detects pnpm / yarn / npm and runs the `lint`, `typecheck`, `test` and `build` scripts when they exist.
+name: node-ci
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        type: string
+        default: "22"
+      working-directory:
+        type: string
+        default: "."
+      pnpm-version:
+        description: Used only when package.json has no packageManager field
+        type: string
+        default: "10"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Detect package manager
+        id: pm
+        run: |
+          if [ -f pnpm-lock.yaml ]; then echo "pm=pnpm" >> "$GITHUB_OUTPUT"
+          elif [ -f yarn.lock ]; then echo "pm=yarn" >> "$GITHUB_OUTPUT"
+          else echo "pm=npm" >> "$GITHUB_OUTPUT"; fi
+          if node -e "process.exit(require('./package.json').packageManager ? 0 : 1)"; then
+            echo "pinned=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pinned=false" >> "$GITHUB_OUTPUT"
+          fi
+      # pnpm/action-setup fails when neither a version nor packageManager is given,
+      # and also when both are given — so pass a version only for unpinned repos.
+      - if: steps.pm.outputs.pm == 'pnpm' && steps.pm.outputs.pinned == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: ${{ inputs.working-directory }}/package.json
+      - if: steps.pm.outputs.pm == 'pnpm' && steps.pm.outputs.pinned == 'false'
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ steps.pm.outputs.pm }}
+          cache-dependency-path: ${{ inputs.working-directory }}/${{ steps.pm.outputs.pm == 'pnpm' && 'pnpm-lock.yaml' || steps.pm.outputs.pm == 'yarn' && 'yarn.lock' || 'package-lock.json' }}
+      - name: Install
+        run: |
+          case "${{ steps.pm.outputs.pm }}" in
+            pnpm) pnpm install --frozen-lockfile ;;
+            yarn) yarn install --frozen-lockfile ;;
+            npm)  if [ -f package-lock.json ]; then npm ci; else npm install; fi ;;
+          esac
+      - name: Lint · typecheck · test · build
+        run: |
+          for s in lint typecheck test build; do
+            if node -e "process.exit(require('./package.json').scripts?.['$s'] ? 0 : 1)"; then
+              echo "::group::$s"; ${{ steps.pm.outputs.pm }} run "$s"; echo "::endgroup::"
+            else
+              echo "::notice::no '$s' script — skipped"
+            fi
+          done
